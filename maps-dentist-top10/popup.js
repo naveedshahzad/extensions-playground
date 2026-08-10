@@ -5,6 +5,7 @@ const resultsEl = document.getElementById("results");
 const queryEl = document.getElementById("query");
 const minReviewsEl = document.getElementById("minReviews");
 const maxResultsEl = document.getElementById("maxResults");
+const modeEl = document.getElementById("mode");
 
 let lastResult = null;
 
@@ -13,7 +14,10 @@ exportButton.addEventListener("click", exportCsv);
 
 async function runAnalysis() {
   setLoading(true);
-  statusEl.textContent = "Running... this can take up to 30-60 seconds while Maps loads listings.";
+  const isDeep = modeEl.value === "deep";
+  statusEl.textContent = isDeep
+    ? "Running deep mode... this can take 2-5 minutes because review snippets are analyzed."
+    : "Running... this can take up to 30-60 seconds while Maps loads listings.";
   resultsEl.innerHTML = "";
   exportButton.disabled = true;
 
@@ -33,7 +37,8 @@ async function runAnalysis() {
         query: queryEl.value.trim(),
         minReviews: Number(minReviewsEl.value) || 0,
         maxResults: Number(maxResultsEl.value) || 120,
-        skipSearchInput: true
+        skipSearchInput: true,
+        mode: modeEl.value
       }
     });
 
@@ -43,7 +48,8 @@ async function runAnalysis() {
 
     lastResult = response.result;
     renderResults(lastResult.ranked);
-    statusEl.textContent = `Scanned ${lastResult.totalCollected} listings. Showing top ${lastResult.ranked.length}.`;
+    const modeText = lastResult.mode === "deep" ? "deep" : "fast";
+    statusEl.textContent = `Scanned ${lastResult.totalCollected} listings in ${modeText} mode. Showing top ${lastResult.ranked.length}.`;
     exportButton.disabled = lastResult.ranked.length === 0;
   } catch (error) {
     statusEl.textContent = error.message;
@@ -63,10 +69,12 @@ function renderResults(items) {
       const stars = item.rating.toFixed(1);
       const reviews = item.reviewCount.toLocaleString();
       const score = item.score.toFixed(3);
+      const deep = Number.isFinite(item.deepScore) ? ` | Deep: ${item.deepScore.toFixed(3)}` : "";
+      const snippets = Array.isArray(item.reviewSnippets) ? ` | Snippets: ${item.reviewSnippets.length}` : "";
       return `
         <li>
           <a href="${escapeHtml(item.url)}" target="_blank">${escapeHtml(item.name)}</a><br>
-          Rating: ${stars} | Reviews: ${reviews} | Score: ${score}
+          Rating: ${stars} | Reviews: ${reviews} | Score: ${score}${deep}${snippets}
         </li>`;
     })
     .join("");
@@ -77,13 +85,15 @@ function exportCsv() {
     return;
   }
 
-  const header = ["Rank", "Name", "Rating", "ReviewCount", "Score", "URL"];
+  const header = ["Rank", "Name", "Rating", "ReviewCount", "Score", "DeepScore", "ReviewSnippetCount", "URL"];
   const rows = lastResult.ranked.map((item, index) => [
     index + 1,
     item.name,
     item.rating,
     item.reviewCount,
     item.score,
+    item.deepScore ?? "",
+    Array.isArray(item.reviewSnippets) ? item.reviewSnippets.length : "",
     item.url
   ]);
 
@@ -105,6 +115,7 @@ function setLoading(loading) {
   queryEl.disabled = loading;
   minReviewsEl.disabled = loading;
   maxResultsEl.disabled = loading;
+  modeEl.disabled = loading;
 }
 
 function quoteCsv(value) {

@@ -24,6 +24,12 @@
       </div>
     </div>
 
+    <label for="mode">Ranking Mode</label>
+    <select id="mode">
+      <option value="fast" selected>Fast (rating + volume confidence)</option>
+      <option value="deep">Deep (includes review text quality)</option>
+    </select>
+
     <button id="run">Find Top 10</button>
     <button id="export" disabled>Export CSV</button>
 

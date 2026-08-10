@@ -34,6 +34,15 @@ input {
   margin-bottom: 10px;
 }
 
+select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: #ffffff;
+}
+
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
