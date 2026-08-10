@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dentist Top 10 Finder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Dentist Top 10 Finder</h1>
+
+    <label for="query">Google Maps Search</label>
+    <input id="query" type="text" value="Dentists in Surrey BC and nearby towns">
+
+    <div class="row">
+      <div>
+        <label for="minReviews">Min Reviews</label>
+        <input id="minReviews" type="number" min="0" value="25">
+      </div>
+      <div>
+        <label for="maxResults">Max Listings to Scan</label>
+        <input id="maxResults" type="number" min="10" max="300" value="120">
+      </div>
+    </div>
+
+    <button id="run">Find Top 10</button>
+    <button id="export" disabled>Export CSV</button>
+
+    <p id="status">Open Google Maps first, then click Find Top 10.</p>
+
+    <ol id="results"></ol>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

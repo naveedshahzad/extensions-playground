@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Maps Dentist Top 10 Finder",
+  "version": "1.0.0",
+  "description": "Find top-rated dentists in Surrey and nearby towns on Google Maps based on review quality and volume.",
+  "permissions": ["activeTab", "tabs"],
+  "host_permissions": ["https://www.google.com/maps/*"],
+  "action": {
+    "default_title": "Dentist Top 10",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/maps/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
