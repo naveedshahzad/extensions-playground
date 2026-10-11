@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      width: 380px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .header {
+      background: #1e293b;
+      padding: 14px 16px;
+      border-bottom: 1px solid #334155;
+    }
+    .header h1 { font-size: 13px; font-weight: 700; color: #38bdf8; letter-spacing: 0.3px; }
+    .header p  { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+    .section { padding: 10px 14px; border-bottom: 1px solid #1e293b; }
+    .label { font-size: 10px; text-transform: uppercase; color: #475569; letter-spacing: 0.5px; margin-bottom: 5px; }
+
+    .course-badge {
+      display: inline-block;
+      background: #0ea5e9;
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .course-badge.unknown { background: #475569; }
+
+    .btn {
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      text-align: center;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #0ea5e9; color: white; }
+    .btn-stop    { background: #ef4444; color: white; }
+
+    .progress-bar-wrap {
+      background: #1e293b;
+      border-radius: 4px;
+      height: 6px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: #0ea5e9;
+      border-radius: 4px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .progress-text {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .log {
+      padding: 8px 14px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      color: #94a3b8;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #020617;
+    }
+    .log-entry { padding: 2px 0; border-bottom: 1px solid #0f172a; line-height: 1.5; }
+    .log-entry.ok   { color: #4ade80; }
+    .log-entry.err  { color: #f87171; }
+    .log-entry.skip { color: #fbbf24; }
+    .log-entry.info { color: #38bdf8; }
+    .log-entry.path { color: #a78bfa; word-break: break-all; }
+
+    #notCascade {
+      padding: 24px 16px;
+      text-align: center;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Cascade Module ZIP Downloader</h1>
+    <p>Downloads all module ZIPs one by one</p>
+  </div>
+
+  <div id="notCascade" style="display:none">
+    Not on a Cascade page.<br>Navigate to a course Content page first.
+  </div>
+
+  <div id="mainContent">
+    <div class="section">
+      <div class="label">Course</div>
+      <span class="course-badge unknown" id="courseBadge">Detecting...</span>
+    </div>
+
+    <div class="section" id="modulesSection" style="display:none">
+      <div class="label">Modules found</div>
+      <div id="moduleCount" style="font-size:12px; color:#94a3b8;"></div>
+      <div class="progress-bar-wrap" id="progressWrap" style="display:none">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text" id="progressText"></div>
+    </div>
+
+    <div class="section">
+      <button class="btn btn-primary" id="startBtn" disabled>Scan Modules</button>
+      <div style="height:6px"></div>
+      <button class="btn btn-stop" id="stopBtn" style="display:none">Stop</button>
+    </div>
+  </div>
+
+  <div class="log" id="log">
+    <div class="log-entry info">> Ready. Navigate to a Cascade Content page.</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
