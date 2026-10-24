@@ -1,0 +1,62 @@
+{
+  "total": 8,
+  "courseFolder": "mgmt-660",
+  "modules": [
+    {
+      "moduleId": 252329,
+      "title": "Welcome",
+      "status": "done",
+      "downloadId": 775,
+      "file": "mgmt-660/modules/module0"
+    },
+    {
+      "moduleId": 252330,
+      "title": "Getting Started",
+      "status": "done",
+      "downloadId": 776,
+      "file": "mgmt-660/modules/module1"
+    },
+    {
+      "moduleId": 252331,
+      "title": "Module 1: Introduction to Entrepreneurship ",
+      "status": "done",
+      "downloadId": 777,
+      "file": "mgmt-660/modules/module2"
+    },
+    {
+      "moduleId": 252332,
+      "title": "Module 2: Identifying & Analysing Domestic & International Opportunities ",
+      "status": "done",
+      "downloadId": 778,
+      "file": "mgmt-660/modules/module3"
+    },
+    {
+      "moduleId": 252333,
+      "title": "Module 3: Creativity, Innovation & Invention ",
+      "status": "done",
+      "downloadId": 779,
+      "file": "mgmt-660/modules/module4"
+    },
+    {
+      "moduleId": 252334,
+      "title": "Module 4: Your Entrepreneurial Story & Pitching the Idea ",
+      "status": "done",
+      "downloadId": 780,
+      "file": "mgmt-660/modules/module5"
+    },
+    {
+      "moduleId": 252335,
+      "title": "Module 5: Problem-Solving & Business Structure Options ",
+      "status": "done",
+      "downloadId": 781,
+      "file": "mgmt-660/modules/module6"
+    },
+    {
+      "moduleId": 252341,
+      "title": "MGMT - Academic Writing Basics",
+      "status": "done",
+      "downloadId": 782,
+      "file": "mgmt-660/modules/module7"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>School Rental Finder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="header">
+    <h1>🏫 School Rental Finder</h1>
+    <p id="subtitle">Find rentals in front of or near elementary schools</p>
+  </div>
+
+  <div id="search-form">
+    <div class="form-row">
+      <label for="searchTerm">Search</label>
+      <input type="text" id="searchTerm" placeholder="e.g. 2 bedroom Surrey BC" />
+    </div>
+    <div class="form-row">
+      <label for="recordCount">Listings to scan</label>
+      <select id="recordCount">
+        <option value="100">100 listings</option>
+        <option value="200">200 listings</option>
+        <option value="300">300 listings</option>
+        <option value="500">500 listings</option>
+        <option value="0">All (no limit)</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btnScan">🔍 Search &amp; Scan</button>
+    <button id="btnExport" disabled>Export CSV</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="progress-wrap" style="display:none">
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <div id="progress-label"></div>
+  </div>
+
+  <div id="results"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

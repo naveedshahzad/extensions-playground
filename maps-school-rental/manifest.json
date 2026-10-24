@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "School-Facing Rental Finder",
+  "version": "1.0.0",
+  "description": "Scans Facebook Marketplace rental listings and surfaces units near or in front of elementary schools.",
+  "permissions": ["activeTab", "tabs", "scripting", "storage"],
+  "host_permissions": ["https://www.facebook.com/*"],
+  "action": {
+    "default_title": "School Rental Finder",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/marketplace/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
