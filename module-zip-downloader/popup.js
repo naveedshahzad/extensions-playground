@@ -5,16 +5,17 @@ let modules = [];
 let courseId = null;
 let courseFolder = null;
 
-const logEl        = document.getElementById('log');
-const startBtn     = document.getElementById('startBtn');
-const stopBtn      = document.getElementById('stopBtn');
-const courseBadge  = document.getElementById('courseBadge');
-const moduleCount  = document.getElementById('moduleCount');
-const progressBar  = document.getElementById('progressBar');
-const progressWrap = document.getElementById('progressWrap');
-const progressText = document.getElementById('progressText');
-const moduleSec    = document.getElementById('modulesSection');
-const saveInfoBtn  = document.getElementById('saveInfoBtn');
+const logEl            = document.getElementById('log');
+const startBtn         = document.getElementById('startBtn');
+const stopBtn          = document.getElementById('stopBtn');
+const courseBadge      = document.getElementById('courseBadge');
+const moduleCount      = document.getElementById('moduleCount');
+const progressBar      = document.getElementById('progressBar');
+const progressWrap     = document.getElementById('progressWrap');
+const progressText     = document.getElementById('progressText');
+const moduleSec        = document.getElementById('modulesSection');
+const saveInfoBtn      = document.getElementById('saveInfoBtn');
+const dlAssignmentsBtn = document.getElementById('dlAssignmentsBtn');
 
 function log(msg, type = '') {
   const el = document.createElement('div');
@@ -60,7 +61,6 @@ async function scanModules() {
             for (const s of (m.Modules || [])) collect(s);
           }
           for (const m of (toc.Modules || [])) collect(m);
-          // Extract course code from page title e.g. "Fall 2026 Project Management (MGMT-640-100-O)" -> "mgmt-640"
           const titleMatch = document.title.match(/\(?(MGMT-\d+)/i);
           const courseFolder = titleMatch ? titleMatch[1].toLowerCase() : '';
           return mods.length > 0 ? { modules: mods, courseId: id, courseFolder } : null;
@@ -128,7 +128,133 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-// ── SAVE COURSE INFO ─────────────────────────────────────────────────────────
+// ── DOWNLOAD ASSIGNMENTS ──────────────────────────────────────────────────────
+
+async function downloadAssignments() {
+  dlAssignmentsBtn.disabled = true;
+  log('Fetching assignments from API...', 'info');
+
+  const results = await chrome.scripting.executeScript({
+    target: { tabId: currentTab.id },
+    func: async () => {
+      const globalCtx    = JSON.parse(document.documentElement.dataset.globalContext || '{}');
+      const orgUnitId    = globalCtx.orgUnitId || '';
+      const navLink      = document.querySelector('a.d2l-navigation-s-link[href*="/d2l/home/"]');
+      const fullTitle    = navLink?.getAttribute('title') || document.title;
+      const codeMatch    = fullTitle.match(/(MGMT-\d+)/i);
+      const courseFolder = codeMatch ? codeMatch[1].toLowerCase() : '';
+      if (!orgUnitId || !courseFolder) return { error: 'Could not detect course' };
+
+      const res = await fetch(`/d2l/api/le/1.0/${orgUnitId}/dropbox/folders/`);
+      if (!res.ok) return { error: `API ${res.status}` };
+      const data    = await res.json();
+      const folders = data.Objects || data || [];
+
+      const assignments = folders.map((f, i) => {
+        // Build download URL from FileId using base64 encoding
+        const attachments = (f.Attachments || []).map(a => {
+          const b64 = btoa(String(a.FileId));
+          const encodedName = encodeURIComponent(a.FileName || '');
+          return {
+            fileName: a.FileName || '',
+            href: `/d2l/common/viewFile.d2lfile/Database/${b64}/${encodedName}?ou=${orgUnitId}`,
+          };
+        });
+        return { index: i, id: f.Id, name: f.Name, dueDate: f.DueDate || '', attachments };
+      });
+
+      return { orgUnitId, courseFolder, assignments };
+    },
+  });
+
+  const info = results?.[0]?.result;
+  if (info?.error) {
+    log(`Error: ${info.error}`, 'err');
+    dlAssignmentsBtn.disabled = false;
+    return;
+  }
+
+  const { courseFolder: cf, assignments } = info;
+  log(`Found ${assignments.length} assignments in ${cf}`, 'ok');
+
+  for (const a of assignments) {
+    const slug   = a.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const folder = `${cf}/assignments/assignment${a.index + 1}-${slug}`;
+    const due    = a.dueDate ? ' (due ' + a.dueDate.substring(0, 10) + ')' : '';
+    log(`[${a.index + 1}] ${a.name.trim()}${due}`, 'info');
+
+    if (a.attachments.length === 0) {
+      log(`  No attachments`, 'skip');
+      continue;
+    }
+
+    for (const att of a.attachments) {
+      log(`  Downloading: ${att.fileName}`, 'info');
+
+      // Register listener BEFORE triggering download
+      const downloadIdPromise = new Promise((resolve) => {
+        const listener = (item) => {
+          chrome.downloads.onCreated.removeListener(listener);
+          resolve(item.id);
+        };
+        chrome.downloads.onCreated.addListener(listener);
+      });
+
+      // Click the link on the page to trigger the download
+      await chrome.scripting.executeScript({
+        target: { tabId: currentTab.id },
+        func: (href) => {
+          const a = document.createElement('a');
+          a.href = href;
+          a.download = '';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        },
+        args: [att.href],
+      });
+
+      // Wait for download to complete by polling
+      const downloadId = await downloadIdPromise;
+      log(`  Download started (id: ${downloadId}), polling...`, 'info');
+
+      let filePath = null;
+      const start = Date.now();
+      while (Date.now() - start < 120000) {
+        await new Promise(r => setTimeout(r, 3000));
+        const items = await new Promise(r => chrome.downloads.search({ id: downloadId }, r));
+        const item  = items?.[0];
+        if (!item) break;
+        if (item.state === 'complete') { filePath = item.filename; break; }
+        if (item.state === 'interrupted') { log(`  Download interrupted`, 'err'); break; }
+        const pct = item.totalBytes > 0 ? Math.round(item.bytesReceived / item.totalBytes * 100) : '?';
+        log(`  Downloading... ${pct}%`);
+      }
+
+      if (!filePath) { log(`  Failed or timed out`, 'err'); continue; }
+
+      // Move to course folder via companion server
+      const dest = `${folder}/${att.fileName}`;
+      try {
+        const res = await fetch('http://localhost:7734/move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: filePath, to: dest }),
+        });
+        const data = await res.json();
+        if (data.moved) log(`  Saved to ${dest}`, 'ok');
+        else log(`  Move failed: ${JSON.stringify(data)}`, 'err');
+      } catch (_) {
+        log('  Companion server not running.', 'err');
+      }
+    }
+  }
+
+  log('All assignments done.', 'ok');
+  dlAssignmentsBtn.disabled = false;
+}
+
+// ── SAVE COURSE INFO ──────────────────────────────────────────────────────────
 
 async function saveCourseInfo() {
   saveInfoBtn.disabled = true;
@@ -137,28 +263,23 @@ async function saveCourseInfo() {
   const results = await chrome.scripting.executeScript({
     target: { tabId: currentTab.id },
     func: async () => {
-      // Course title from nav link title attribute
-      const navLink = document.querySelector('a.d2l-navigation-s-link[href*="/d2l/home/"]');
+      const navLink   = document.querySelector('a.d2l-navigation-s-link[href*="/d2l/home/"]');
       const fullTitle = navLink?.getAttribute('title') || document.title;
 
-      // e.g. "Fall 2026 Project Management (MGMT-640-100-O)"
       const codeMatch  = fullTitle.match(/(MGMT-\d+)/i);
       const termMatch  = fullTitle.match(/(Fall|Winter|Spring|Summer)\s+(\d{4})/i);
       const nameMatch  = fullTitle.match(/^(?:(?:Fall|Winter|Spring|Summer)\s+\d{4}\s+)?(.+?)\s*\(/i);
 
-      const courseCode = codeMatch ? codeMatch[1].toUpperCase() : '';
-      const term       = termMatch ? termMatch[0] : '';
-      const courseName = nameMatch ? nameMatch[1].trim() : fullTitle;
+      const courseCode  = codeMatch ? codeMatch[1].toUpperCase() : '';
+      const term        = termMatch ? termMatch[0] : '';
+      const courseName  = nameMatch ? nameMatch[1].trim() : fullTitle;
 
-      // Student name from nav avatar opener-label
-      const avatarBtn  = document.querySelector('d2l-labs-navigation-dropdown-button-custom');
+      const avatarBtn   = document.querySelector('d2l-labs-navigation-dropdown-button-custom');
       const studentName = avatarBtn?.getAttribute('opener-label')?.replace(', avatar', '').trim() || '';
 
-      // orgUnitId from data-global-context
       const globalCtx  = JSON.parse(document.documentElement.dataset.globalContext || '{}');
       const orgUnitId  = globalCtx.orgUnitId || '';
 
-      // Fetch course home page to find instructor
       let instructor = 'TBD';
       let instructorEmail = '';
       if (orgUnitId) {
@@ -166,31 +287,26 @@ async function saveCourseInfo() {
           const res  = await fetch(`/d2l/home/${orgUnitId}`);
           const html = await res.text();
 
-          // Pattern 1: email mailto link e.g. href="mailto:shweta.dharia@unfc.ca"
           const emailMatch = html.match(/href="mailto:([^"]+@unfc\.ca)"/);
           if (emailMatch) instructorEmail = emailMatch[1];
 
-          // Pattern 2: profile image filename e.g. "1234_Shweta Dharia.png"
           const imgMatch = html.match(/\d+_([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\.(?:png|jpg|jpeg)/i);
-          if (imgMatch) { instructor = imgMatch[1]; }
+          if (imgMatch) instructor = imgMatch[1];
 
-          // Pattern 3: plain text patterns as fallback
           if (instructor === 'TBD') {
-            const patterns = [
+            for (const p of [
               /instructor[:\s]+([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+){1,3})/i,
               /professor[:\s]+([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+){1,3})/i,
               /taught\s+by[:\s]+([A-Z][a-z.]+(?:\s+[A-Z][a-z.]+){1,3})/i,
-            ];
-            for (const p of patterns) {
+            ]) {
               const m = html.match(p);
               if (m) { instructor = m[1].trim(); break; }
             }
           }
 
-          // Derive name from email as last fallback e.g. shweta.dharia@unfc.ca -> Shweta Dharia
           if (instructor === 'TBD' && instructorEmail) {
-            const local = instructorEmail.split('@')[0];
-            instructor = local.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+            instructor = instructorEmail.split('@')[0].split('.')
+              .map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
           }
         } catch (_) {}
       }
@@ -233,9 +349,7 @@ async function saveCourseInfo() {
     `| TBD | | | |`,
     ``,
     `## Modules`,
-    ...(modules.length > 0
-      ? modules.map((m, i) => `- Module ${i}: ${m.title}`)
-      : ['- TBD']),
+    ...(modules.length > 0 ? modules.map((m, i) => `- Module ${i}: ${m.title}`) : ['- TBD']),
     ``,
     `## Notes`,
     `- Created by Cascade Module ZIP Downloader extension`,
@@ -259,8 +373,9 @@ async function saveCourseInfo() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
-stopBtn.onclick = stopDownloads;
-saveInfoBtn.onclick = saveCourseInfo;
+stopBtn.onclick          = stopDownloads;
+saveInfoBtn.onclick      = saveCourseInfo;
+dlAssignmentsBtn.onclick = downloadAssignments;
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   currentTab = tabs[0];
@@ -280,7 +395,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     courseBadge.classList.remove('unknown');
   }
 
-  // Check if background loop is already running
   chrome.runtime.sendMessage({ action: 'getLoopState' }, (resp) => {
     if (resp?.state?.running) {
       setRunningUI(true);
@@ -290,6 +404,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       startBtn.disabled = false;
       startBtn.onclick = scanModules;
       saveInfoBtn.disabled = false;
+      dlAssignmentsBtn.disabled = false;
     }
   });
 });

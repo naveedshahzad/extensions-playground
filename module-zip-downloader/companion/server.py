@@ -90,6 +90,21 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"  [ERROR] move: {e}")
                 self.send_json({"error": str(e)}, 500)
 
+        elif self.path == "/save-b64":
+            import base64
+            rel_path  = payload.get("path", "")
+            b64       = payload.get("b64", "")
+            full_path = rel_path if os.path.isabs(rel_path) else os.path.join(BASE_PATH, rel_path)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            try:
+                with open(full_path, "wb") as f:
+                    f.write(base64.b64decode(b64))
+                print(f"  [SAVED-B64] {full_path}")
+                self.send_json({"saved": rel_path})
+            except Exception as e:
+                print(f"  [ERROR] save-b64: {e}")
+                self.send_json({"error": str(e)}, 500)
+
         elif self.path == "/save":
             ptype = payload.get("type")
 
